@@ -4,6 +4,19 @@
 
 #include "../inc/threaded_counter.h"
 
+std::string threaded_counter::clear_word(std::string word){
+    size_t i = 0;
+    size_t len = word.length();
+    while(i < len){
+        if (!isalnum(word[i]) || word[i] == ' '){
+            word.erase(i,1);
+            len--;
+        }else
+            i++;
+    }
+    return word;
+}
+
 void threaded_counter::reader(std::deque<std::vector<std::string>> &data_blocks, std::string filename, size_t block_size, bool &read_done){
     std::ifstream infile(filename);
     std::string line;
@@ -13,7 +26,8 @@ void threaded_counter::reader(std::deque<std::vector<std::string>> &data_blocks,
     while(getline(infile, line))
     {
         ++line_index;
-        lines.push_back(line);
+        boost::algorithm::to_lower(line);
+        lines.push_back(boost::trim_copy(line));
         if(line_index == block_size){
             {
                 std::lock_guard<std::mutex> ll(mtx);
@@ -49,7 +63,9 @@ void threaded_counter::counter(std::deque<std::vector<std::string>> &data_blocks
                 boost::split(results, data.at(i), [](char c){return c == ' ';});
 
                 for(size_t j = 0; j < results.size(); j++){
-                    local_data[results.at(j)]++;
+                    if (!results.at(j).empty() && results.at(j) != " "){
+                        local_data[this->clear_word(results.at(j))]++;
+                    }
                 }
             }
             std::unique_lock<std::mutex> lk_merge(mtx_merge);
@@ -111,22 +127,15 @@ std::map<std::string, long> threaded_counter::get_count_data(std::string filenam
     std::thread read_thread(&threaded_counter::reader, this, std::ref(data_blocks), filename, block_size, std::ref(read_done));
     std::thread merge_thread(&threaded_counter::merger, this, std::ref(final_count_data), std::ref(merge_queue), std::ref(sub_count_done));
 
-    for(int i = 0; i < thread_num; i++){
+    for(size_t i = 0; i < thread_num; i++){
         workers[i] = std::thread(&threaded_counter::counter, this, std::ref(data_blocks), std::ref(merge_queue), std::ref(read_done), std::ref(sub_count_done));
     }
 
     read_thread.join();
-    for(int i = 0; i < thread_num; i++){
+    for(size_t i = 0; i < thread_num; i++){
         workers[i].join();
     }
     merge_thread.join();
 
-    std::map<std::string, long>::iterator iter = final_count_data.begin();
-
-    size_t total = 0;
-    while(iter != final_count_data.end()){
-        std:: cout << iter->first << " " << iter->second << std::endl;
-        total += iter->second;
-        iter++;
-    }
+    return final_count_data;
 }

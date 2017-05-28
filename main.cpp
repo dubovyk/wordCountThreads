@@ -36,6 +36,37 @@ config get_conf_from_file(std::string filename){
 int main(){
     config conf = get_conf_from_file("conf.ini");
     threaded_counter counter1;
-    counter1.get_count_data(conf.input_file, conf.thread_num, conf.block_size);
+    std::map<std::string, long> result = counter1.get_count_data(conf.input_file, conf.thread_num, conf.block_size);
+    std::vector<std::pair<std::string, int>> pairs;
+
+    for (auto itr = result.begin(); itr != result.end(); ++itr)
+        pairs.push_back(*itr);
+
+    sort(pairs.begin(), pairs.end(), [=](std::pair<std::string, int>& a, std::pair<std::string, int>& b)
+         {
+             return a.second > b.second;
+         }
+    );
+
+    std::ofstream out_val;
+    out_val.open(conf.output_num);
+
+
+    for(size_t i = 0; i < pairs.size(); i++){
+        out_val << pairs.at(i).first << " " << pairs.at(i).second << std::endl;
+    }
+    out_val.close();
+
+    std::ofstream out_alpha;
+    out_alpha.open(conf.output_alpha);
+
+    std::map<std::string, long>::iterator iter = result.begin();
+
+    while(iter != result.end()){
+        out_alpha << iter->first << " " << iter->second << std::endl;
+        iter++;
+    }
+    out_alpha.close();
+    std::cout << "Done" << std::endl;
     return 0;
 }
