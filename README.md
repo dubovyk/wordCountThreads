@@ -1,4 +1,4 @@
-# WordCounter part 1
+# WordCounter part 2
 
 ## Intro
 
